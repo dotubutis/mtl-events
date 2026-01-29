@@ -17,7 +17,7 @@ class ArenaClient
   def fetch_image_blocks
     blocks = []
     page = 1
-    per_page = 50
+    per_page = 100
 
     loop do
       response = fetch_channel_contents(page: page, per_page: per_page)
@@ -38,9 +38,8 @@ class ArenaClient
           source_url: block["source"]&.dig("url")
         }
       end
-
       # Check if there are more pages
-      total_pages = response.dig("meta", "total_pages") || 1
+      total_pages = response["total_pages"] || 1
       break if page >= total_pages
 
       page += 1
