@@ -2,7 +2,7 @@
 
 ## Handle Multiple Events Per Image
 
-**Status**: Not started  
+**Status**: ✅ Completed (2026-01-28)
 **Priority**: Medium  
 **Complexity**: Medium
 
@@ -45,12 +45,22 @@ Current behavior:
 
 The existing approach (extract first event, describe others in description field) is acceptable for now. It keeps all information accessible without requiring pipeline restructuring.
 
-### When to Implement
+### Implementation Notes
 
-Consider implementing when:
-- Multiple users report missing events from multi-event posters
-- Calendar has consistent duplicates from festivals
-- Time is available for medium-sized refactor
+**Implemented on 2026-01-28**
+
+Changes made:
+1. Updated `VisionExtractor` JSON schema to return `events` array instead of single event object
+2. Modified `VisionExtractor#extract()` to return `Array<Event>` (empty array on failure)
+3. Updated `main.rb` to iterate over multiple events per image block
+4. Enhanced extraction prompt to explicitly request all events from multi-event posters
+5. Added logging to show event count and progress for multi-event images
+
+Test results:
+- Successfully extracted 6 events from "Everyday Ago Festival of Time 2026" poster
+- All events extracted with high confidence
+- Proper venue, date, and artist information captured for each event
+- Festival context preserved in event descriptions
 
 
 - Test with block 42449718 - it's a multi-event poster, but it's not being extracted correctly.

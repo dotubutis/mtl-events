@@ -55,49 +55,57 @@ class EventProcessor
     new_blocks.each_with_index do |block, index|
       log "\n[#{index + 1}/#{new_blocks.length}] Processing block #{block[:id]}..."
       log "  Image: #{block[:image_url]}" if @verbose
-      # Extract event data
-      event = @vision.extract(image_url: block[:image_url], block_id: block[:id])
+      # Extract event data (returns array of events)
+      events = @vision.extract(image_url: block[:image_url], block_id: block[:id])
 
-      if event.nil?
+      if events.empty?
         log "  ❌ Failed to extract event data"
         results[:failed] += 1
         next
       end
 
-      log "  📅 Extracted: #{event}"
+      log "  📅 Extracted #{events.length} event(s) from image"
 
-      unless event.valid?
-        log "  ⚠️  Invalid event (missing name or date), skipping"
-        results[:skipped] += 1
-        newly_processed << block[:id] # Mark as processed to avoid retrying
-        next
-      end
+      # Track if at least one event was successfully processed
+      block_success = false
+      
+      # Process each event from the image
+      events.each_with_index do |event, event_index|
+        log "  [Event #{event_index + 1}/#{events.length}] #{event}" if events.length > 1
 
-      # Check for duplicates
-      if @calendar.event_exists?(event)
-        log "  ⏭️  Event already exists in calendar, skipping"
-        results[:skipped] += 1
-        newly_processed << block[:id]
-        next
-      end
-
-      # Create calendar event (or validate in dry run mode)
-      event_id = @calendar.create_event(event)
-
-      if event_id
-        if @dry_run
-          log "  🔍 DRY RUN: Calendar event validated successfully"
-          log "     #{event.to_h.to_json}" if @verbose
-        else
-          log "  ✅ Created calendar event: #{event_id}"
+        unless event.valid?
+          log "    ⚠️  Invalid event (missing name or date), skipping"
+          results[:skipped] += 1
+          next
         end
-        results[:success] += 1
-        newly_processed << block[:id] unless @dry_run
-      else
-        log "  ❌ Failed to #{@dry_run ? 'validate' : 'create'} calendar event"
-        results[:failed] += 1
-        # Don't mark as processed so we retry next time
+
+        # Check for duplicates
+        if @calendar.event_exists?(event)
+          log "    ⏭️  Event already exists in calendar, skipping"
+          results[:skipped] += 1
+          next
+        end
+
+        # Create calendar event (or validate in dry run mode)
+        event_id = @calendar.create_event(event)
+
+        if event_id
+          if @dry_run
+            log "    🔍 DRY RUN: Calendar event validated successfully"
+            log "       #{event.to_h.to_json}" if @verbose
+          else
+            log "    ✅ Created calendar event: #{event_id}"
+          end
+          results[:success] += 1
+          block_success = true
+        else
+          log "    ❌ Failed to #{@dry_run ? 'validate' : 'create'} calendar event"
+          results[:failed] += 1
+        end
       end
+
+      # Mark block as processed if at least one event succeeded or if in dry run mode
+      newly_processed << block[:id] if block_success || @dry_run
     end
 
     # Save updated processed IDs

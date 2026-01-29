@@ -14,7 +14,8 @@ class VisionExtractor
   MODEL = "claude-sonnet-4-5-20250929"
 
   EXTRACTION_PROMPT = <<~PROMPT
-    Extract event details from this poster. Return structured data with the following fields:
+    Extract ALL event details from this poster. If there are multiple events (like a festival lineup), 
+    extract each one separately. Return an array of events, where each event has these fields:
     - name: event name
     - date: YYYY-MM-DD format
     - time: HH:MM in 24-hour format
@@ -30,7 +31,9 @@ class VisionExtractor
     - Set confidence to "low" if you had to guess or infer significant details
     - Set confidence to "medium" if some details were unclear but the main info is there
     - Set confidence to "high" if all details are clearly visible
-    - If you encounter an image that specifies multiple events, then extract the first event and describe the other events in the description field. If the events are in multiple cities, always prioritize Montreal to be the first event to extract.
+    - For festival posters with multiple events, extract each event separately
+    - If there's an overarching festival/series name, include it in each event's description
+    - If the events are in multiple cities, include only events in Canada.
   PROMPT
 
   def initialize(api_key: nil, verbose: false)
@@ -40,29 +43,36 @@ class VisionExtractor
   end
 
   # Extract event details from an image URL
-  # Returns an Event object or nil if extraction failed
+  # Returns an array of Event objects or empty array if extraction failed
   def extract(image_url:, block_id: nil)
     puts "  [DEBUG] Fetching image..." if @verbose
     image_data = fetch_image_as_base64(image_url)
     unless image_data
       warn "  [DEBUG] Image fetch failed" if @verbose
-      return nil
+      return []
     end
     puts "  [DEBUG] Image fetched successfully (#{image_data[:data].length} bytes base64)" if @verbose
 
     puts "  [DEBUG] Calling Claude API..." if @verbose
-    event_data = call_claude(image_data)
-    unless event_data
+    response_data = call_claude(image_data)
+    unless response_data
       warn "  [DEBUG] Claude API call failed (no response)" if @verbose
-      return nil
+      return []
     end
     puts "  [DEBUG] Claude response received with structured output" if @verbose
 
-    Event.new(event_data.merge("block_id" => block_id, "image_url" => image_url))
+    # Extract the events array from the response
+    events_data = response_data[:events] || response_data["events"] || []
+    puts "  [DEBUG] Extracted #{events_data.length} event(s) from response" if @verbose
+
+    # Create Event objects for each event in the array
+    events_data.map do |event_data|
+      Event.new(event_data.merge("block_id" => block_id, "image_url" => image_url))
+    end
   rescue StandardError => e
     warn "Vision extraction error: #{e.message}"
     warn "Backtrace: #{e.backtrace.first(3).join("\n")}"
-    nil
+    []
   end
 
   private
@@ -203,15 +213,26 @@ class VisionExtractor
         schema: {
           type: "object",
           properties: {
-            name: { type: "string" },
-            date: { type: "string" },
-            time: { type: ["string", "null"] },
-            end_time: { type: ["string", "null"] },
-            location: { type: ["string", "null"] },
-            description: { type: ["string", "null"] },
-            confidence: { type: "string", enum: ["high", "medium", "low"] }
+            events: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  date: { type: "string" },
+                  time: { type: ["string", "null"] },
+                  end_time: { type: ["string", "null"] },
+                  location: { type: ["string", "null"] },
+                  description: { type: ["string", "null"] },
+                  confidence: { type: "string", enum: ["high", "medium", "low"] }
+                },
+                required: ["name", "date", "confidence"],
+                additionalProperties: false
+              },
+              minItems: 1
+            }
           },
-          required: ["name", "date", "confidence"],
+          required: ["events"],
           additionalProperties: false
         }
       }
