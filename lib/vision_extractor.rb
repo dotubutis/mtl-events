@@ -7,11 +7,18 @@ require "openssl"
 require "base64"
 require "mini_magick"
 require "tempfile"
+require "tzinfo"
 require_relative "event"
 
 # Extracts event information from images using Claude's vision API
 class VisionExtractor
   MODEL = "claude-sonnet-4-5-20250929"
+  TIMEZONE = TZInfo::Timezone.get("America/New_York") # EST/EDT
+
+  # Get current date in EST/EDT timezone
+  def self.est_today
+    TIMEZONE.now.to_date
+  end
 
   EXTRACTION_PROMPT = <<~PROMPT
     Extract ALL event details from this poster. If there are multiple events (like a festival lineup), 
@@ -25,7 +32,8 @@ class VisionExtractor
     - confidence: "high", "medium", or "low"
 
     Guidelines:
-    - If the year is not specified, assume #{Date.today.year}. Events are highly unlikely to be earlier than 2025.
+    - If the year is not specified, assume #{est_today.year}. Events are highly unlikely to be earlier than 2025.
+    - Today is #{est_today.strftime("%Y-%m-%d")} (EST/EDT timezone).
     - Use 24-hour time format (e.g., "21:00" not "9:00 PM")
     - If info is missing or unclear, use null for that field
     - Set confidence to "low" if you had to guess or infer significant details

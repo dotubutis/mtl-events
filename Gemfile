@@ -10,3 +10,5 @@ gem "google-apis-calendar_v3"       # Google Calendar API
 gem "dotenv", "~> 3.1"              # Load environment variables (local dev)
 gem "base64"                        # Base64 encoding/decoding (for credentials)
 gem "mini_magick", "~> 5.0"         # Image processing for compression
+gem "tzinfo", "~> 2.0"              # Timezone support for consistent EST handling
+gem "tzinfo-data"                   # Timezone data (needed on Windows and for CI)
