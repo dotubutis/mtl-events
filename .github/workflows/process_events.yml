@@ -1,0 +1,36 @@
+name: Process Are.na Events
+
+on:
+  schedule:
+    # Run every 4 hours
+    - cron: '0 */4 * * *'
+  workflow_dispatch: # Allow manual trigger for testing
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: Run event processor
+        run: bundle exec ruby main.rb --verbose
+        env:
+          ARENA_CHANNEL_SLUG: ${{ secrets.ARENA_CHANNEL_SLUG }}
+          ARENA_TOKEN: ${{ secrets.ARENA_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_CALENDAR_ID: ${{ secrets.GOOGLE_CALENDAR_ID }}
+          GOOGLE_CALENDAR_CREDENTIALS: ${{ secrets.GOOGLE_CALENDAR_CREDENTIALS }}
+
+      - name: Commit updated processed.json
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Update processed blocks [skip ci]"
+          file_pattern: "data/processed.json"
