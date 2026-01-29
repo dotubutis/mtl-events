@@ -123,7 +123,3 @@ Claude assigns a confidence level to each extraction:
 - **high**: All details clearly visible
 - **medium**: Some details unclear but main info present
 - **low**: Significant guessing required → Events prefixed with `[UNVERIFIED]`
-
-## Cost Estimate
-
-Claude Sonnet 4 vision costs ~$0.003-0.01 per image, depending on size.
