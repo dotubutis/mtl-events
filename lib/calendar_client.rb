@@ -107,35 +107,38 @@ class CalendarClient
     end_time_info = event.parsed_end_time
 
     if time_info
-      # Event with specific time - create as Montreal time zone
-      # Use offset for Eastern Time (handles EST/EDT automatically)
-      start_datetime = DateTime.new(
-        date.year, date.month, date.day,
-        time_info[:hour], time_info[:minute], 0,
-        '-05:00'  # Eastern Time offset
-      )
+      start_local = format("%04d-%02d-%02dT%02d:%02d:00",
+                           date.year, date.month, date.day,
+                           time_info[:hour], time_info[:minute])
 
-      end_datetime = if end_time_info
-                       # Create end datetime
-                       end_dt = DateTime.new(
-                         date.year, date.month, date.day,
-                         end_time_info[:hour], end_time_info[:minute], 0,
-                         '-05:00'  # Eastern Time offset
-                       )
-                       # If end time is earlier than start time, event goes past midnight
-                       end_dt += 1 if end_dt <= start_datetime
-                       end_dt
-                     else
-                       # Default to 2 hours duration
-                       start_datetime + Rational(2, 24)
-                     end
+      end_local = if end_time_info
+                    end_date = date
+                    # If end time is earlier than start time, event goes past midnight
+                    if end_time_info[:hour] < time_info[:hour] ||
+                       (end_time_info[:hour] == time_info[:hour] && end_time_info[:minute] <= time_info[:minute])
+                      end_date += 1
+                    end
+                    format("%04d-%02d-%02dT%02d:%02d:00",
+                           end_date.year, end_date.month, end_date.day,
+                           end_time_info[:hour], end_time_info[:minute])
+                  else
+                    end_hour = time_info[:hour] + 2
+                    end_date = date
+                    if end_hour >= 24
+                      end_hour -= 24
+                      end_date += 1
+                    end
+                    format("%04d-%02d-%02dT%02d:%02d:00",
+                           end_date.year, end_date.month, end_date.day,
+                           end_hour, time_info[:minute])
+                  end
 
       google_event.start = Google::Apis::CalendarV3::EventDateTime.new(
-        date_time: start_datetime.rfc3339,
+        date_time: start_local,
         time_zone: "America/Montreal"
       )
       google_event.end = Google::Apis::CalendarV3::EventDateTime.new(
-        date_time: end_datetime.rfc3339,
+        date_time: end_local,
         time_zone: "America/Montreal"
       )
     else
