@@ -25,7 +25,6 @@ class ArenaClient
 
       break if contents.empty?
 
-      # Filter for image blocks only
       image_blocks = contents.select { |block| block["class"] == "Image" }
 
       image_blocks.each do |block|
@@ -38,9 +37,9 @@ class ArenaClient
           source_url: block["source"]&.dig("url")
         }
       end
-      # Check if there are more pages
-      total_pages = response["total_pages"] || 1
-      break if page >= total_pages
+
+      # API doesn't return total_pages; stop when we get fewer items than requested
+      break if contents.length < per_page
 
       page += 1
     end
